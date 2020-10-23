@@ -1,0 +1,19 @@
+% Parametres physiques :
+tfin   = 1e-8      % temps total maximal de simulation [s]
+mass   = 1.6726e-27  % mass de la particule test [kg]
+charge = 1.6022e-19  % charge de la particule test [C] 
+B0     = 5e0 	     % intensite du champ magnetique [T]
+l_k    = 0e0	     % longueur characteristique due champ magnetique [1/m]
+E0     = 1e5        % intensite du champ electrique [V/m]
+x0     = 0e0        % position initiale en x [m]
+z0     = 0e0        % position initiale en z [m]
+vx0    = 0e0        % vitesse initiale en x [m/s]
+vz0    = 4e5        % vitesse initiale en z [m/s]
+
+% Parametres numeriques :
+nsteps   = 100       % nombre de pas de temps maximal (dt=tfin/nsteps)
+schema   = BB       % Schema numerique E,EI,EC,RK2,BB
+tol      = 1e-10      % tolerance methode implicite
+maxit    = 10000    % nombre maximale d iterations methode implicite
+output   = output.out % nome/adresse du fichier d'output
+sampling = 0          % nombre de pas de temps entre deux ecritures, no sampling = -1
