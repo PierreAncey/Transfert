@@ -1,0 +1,264 @@
+#include <iostream>       // basic input output streams
+#include <fstream>        // input output file stream class
+#include <cmath>          // librerie mathematique de base
+#include <iomanip>        // input output manipulators
+#include <valarray>       // valarray functions
+#include <vector>       // vector functions
+#include "ConfigFile.h" // Il contient les methodes pour lire inputs et ecrire outputs 
+                          // Fichier .tpp car inclut fonctions template
+
+using namespace std; // ouvrir un namespace avec la librerie c++ de base
+
+/* La class Engine est le moteur principale de ce code. Il contient 
+   les methodes de base pour lire / initialiser les inputs, 
+   preparer les outputs et calculer les donnees necessaires
+*/
+class Engine
+{
+
+private:
+  // definition des variables internes a la classe Engine --------------------------------------------
+
+  double const pi=3.14159265358979323846264338327950288419716939937510582097494459230e0;
+  double tfin=0.e0;		  // Temps final
+  double g=0.e0;		  // acceleration gravitationelle
+  double mass=1.e0,q=0.e0,L=0.e0; // Masse, charge et longueur fu pendule
+  double k=0.e0;		  // Constantes de trainee du pendule
+  double omega=0.e0,phi=0.e0;	  // vitesse angulaire et phase du champ electrique
+  double E0=0.e0; 	  // intensites du champ electrique
+  valarray<double> winit=valarray<double>(0.e0,2); // position et vitesse initiales
+  unsigned int sampling=1; // Nombre de pas de temps entre chaque ecriture des diagnostics
+  unsigned int last;       // Nombre de pas de temps depuis la derniere ecriture des diagnostics
+  ofstream *outputFile;    // Pointeur vers le fichier de sortie
+
+  // methodes internes a la classe Engine ------------------------------------------------------------
+
+  /* Calculer et ecrire les diagnostics dans un fichier
+     inputs:
+       write: (bool) ecriture de tous les sampling si faux
+  */  
+  void printOut(bool write)
+  {
+    // Ecriture tous les [sampling] pas de temps, sauf si write est vrai
+    if((!write && last>=sampling) || (write && last!=1))
+    { 
+      *outputFile << t << " " << w[0] << " " << w[1] << " " \
+      << energy() << " " << nonConservativePower() << " " << \
+      (w[0]+pi)-(2.*pi)*floor((w[0]+pi)/(2.*pi))-pi << endl; // write output on file
+      last = 1;
+    }
+    else
+    {
+      last++;
+    }
+  }
+
+  //TODO
+  /* Calcule de la puissances des forces non conservatives
+     outputs:
+       puissance: (double) puissances des forces non conservatives
+  */
+  double nonConservativePower()
+  {
+    // calculer le potentiel electrique trainee lineaire
+    return 0.;
+
+  }
+
+  //TODO
+  /* Calcule de l energie mecanique du systeme par rapport
+     la position d equilibre stable
+     inputs:
+     outputs:
+       energy: (double) energie mecanique
+  */
+  double energy() const
+ {
+	 double e = 0.5*mass*L*L*w[0]*w[0] + mass*g*L*(1-cos(w[0]));
+	 
+   // calculer l energie
+   return e;
+ }
+
+  // Iteration temporelle, a definir au niveau des classes filles
+  virtual void step()=0;
+
+protected:
+
+  // variables accessibles aux classes filles --------------------------------------------------------
+
+  double t=0.e0;  // Temps courant pas de temps
+  double dt=1.e5; //Pas de temps
+  // Positions et vitesses actuelle de la particule: (theta,thetadot)
+  valarray<double> w=valarray<double>(0.0e0,2);
+  // constantes de l acceleration:
+  // stormer verlet  0.5*dt*{g/L,k/mass,q*E0./(m*L)}
+  valarray<double> constants=valarray<double>(0.0e0,3);  
+
+  // methodes accessibles aux classes filles ---------------------------------------------------------
+
+  // TODO
+  /* Cette methode calcule l acceleration du champ electrique a un instant donne
+     inputs:
+       t_:	(double) temps auquel calculer le champ electrique
+       theta_:  (double) position du pendule
+     outpus:
+       a: (double) acceleration du champ electrique
+  */ 
+  double electricAcceleration(double const& t_,double const& theta_)
+  {
+	  
+	  double el_acc = (q*E0/(mass*L))*sin(theta_)*sin(omega*t_);
+    // calculer la force du champ electrique
+    return el_acc;
+  }
+
+  // TODO
+  /* Ajouter de l acceleration sans trainee
+     inputs:
+       theta_:  (double) position du pendule
+     outputs:
+       a:	(double) acceleration sans trainee
+  */
+  double conservativeAcceleration(double const& theta_)
+  {
+	 double cons_acc= (-g/L)*sin(theta_);
+    // calculer l acceleration de gravite
+    return cons_acc;
+  }
+
+  //TODO
+  /* Ajouter l acceleration de la trainee
+     inputs:
+       thetaDot_: (double) vitesse du pendule
+     outputs:
+       a: (double) acceleration de la trainee
+  */
+  double dragAcceleration(double const& thetaDot_)
+  {
+	  double drag_acc = (-k/mass)*thetaDot_;
+    // calculer l acceleration de la trainee lineaire
+    return drag_acc;
+  }
+
+public:
+
+  /* Constructeur de la classe Engine
+     inputs:
+       configFile: (ConfigFile) handler du fichier d'input
+  */
+  Engine(ConfigFile configFile)
+  {
+    // variable locale
+    
+    // Stockage des parametres de simulation dans les attributs de la classe
+    tfin     = configFile.get<double>("tfin");		// lire la temps totale de simulation
+    dt	     = configFile.get<double>("dt");		// lire la time step
+    mass     = configFile.get<double>("mass");		// lire la mass du pendule
+    q        = configFile.get<double>("q");		// lire la charge du pendule
+    L        = configFile.get<double>("L");		// lire longueur du pendule
+    g        = configFile.get<double>("g");		// lire acceleration gravite
+    k        = configFile.get<double>("k");		// lire la constante de trainee
+    E0       = configFile.get<double>("E0");		// lire la composant x champ electrique
+    omega    = configFile.get<double>("omega");		// lire vitesse angulaire champ E
+    phi      = configFile.get<double>("phi");		// lire phase champ E
+    winit[0] = configFile.get<double>("theta0");	// lire composante x position initiale
+    winit[1] = configFile.get<double>("thetaDot0");	// lire composante z position initiale
+    sampling = configFile.get<unsigned int>("sampling");// lire le parametre de sampling
+
+    // Ouverture du fichier de sortie
+    outputFile = new ofstream(configFile.get<string>("output").c_str()); 
+    outputFile->precision(15); // Les nombres seront ecrits avec 15 decimales
+  };
+
+  // Destructeur virtuel
+  virtual ~Engine()
+  {
+    outputFile->close();
+    delete outputFile;
+  };
+
+  // Simulation complete
+  void run()
+  {
+    t = 0.e0; // initialiser le temps
+    w = winit;   // initialiser la position et la vitesse
+    last = 0; // initialise le parametre d'ecriture
+    printOut(true); // ecrire premier pas de temps
+    while(t<=tfin)
+    {
+      step();  // faire la mise a jour de la simulation 
+      printOut(false); // ecrire pas de temps actuel
+    }
+    printOut(true); // ecrire dernier pas de temps
+  };
+
+};
+
+// Extension de la class Engine implementant l'integrateur de Stormer-Verlet
+class EngineStormerVerlet: public Engine
+{
+
+protected:
+
+  // methodes de la classe fille --------------------------------------------------------------------
+
+public:
+
+  // construire la class Engine
+  EngineStormerVerlet(ConfigFile configFile): Engine(configFile){}
+
+  // TODO
+  /* Cette methode integre les equations du mouvement en utilisant
+     le scheme: Stormer-Verlet.
+  */
+  void step()
+  {
+	  double w0_old = w[0];
+	  double w1_old = w[1];
+	  double t_old =t;
+	 
+	
+	  w[0] = w[0] + w[1]*dt + (electricAcceleration(t,w[0])+conservativeAcceleration(w[0])+dragAcceleration(w[1]))*dt*dt*0.5;
+	  w[1] = w[1] + (electricAcceleration(t,w[0])+conservativeAcceleration(w[0])+dragAcceleration(w[1]))*dt*0.5;
+	  t+=dt;
+	  w[1] = w1_old + dragAcceleration(w[1])*dt + (electricAcceleration(t_old,w0_old) + conservativeAcceleration(w0_old) +electricAcceleration(t,w[0]) +conservativeAcceleration(w[0]))*dt*0.5;
+ 
+      
+  }
+};
+
+// programme
+int main(int argc, char* argv[])
+{
+  string inputPath("configuration.in"); // Fichier d'input par defaut
+  if(argc>1) // Fichier d'input specifie par l'utilisateur ("./Exercice2 config_perso.in")
+    inputPath = argv[1];
+
+  ConfigFile configFile(inputPath); // Les parametres sont lus et stockes dans une "map" de strings.
+
+  for(int i(2); i<argc; ++i) // Input complementaires ("./Exercice2 config_perso.in input_scan=[valeur]")
+    configFile.process(argv[i]);
+
+  // Schema numerique: "StormerVerlet"/"SV" only
+  string schema(configFile.get<string>("schema"));
+
+  Engine* engine; // definer la class pour la simulation
+  // choisir quel schema utiliser
+  if(schema == "StormerVerlet" || schema == "SV")
+  {
+    // initialiser une simulation avec schema Stormer-Verlet
+    engine = new EngineStormerVerlet(configFile);
+  }
+  else
+  {
+    cerr << "Schema inconnu" << endl;
+    return -1;
+  }
+
+  engine->run(); // executer la simulation
+
+  delete engine; // effacer la class simulation 
+  cout << "Fin de la simulation." << endl;
+  return 0;
+}
